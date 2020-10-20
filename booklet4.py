@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+import sys
+import os
+import time
+from pdfrw import PdfReader, PdfWriter, PageMerge
+
 class BookletPage:
     def __init__(self, booklet, pagenr: int):
         self.booklet = booklet
@@ -13,7 +18,17 @@ class BookletPage:
 
     def __setitem__(self, key, val):
         self.pages[key] = val
-    
+
+    def __iter__(self):
+        self.index = 0
+        return self
+
+    def __next__(self):
+        if self.index > 3:
+            raise StopIteration
+        self.index += 1
+        return self[ self.index - 1 ]
+
     def __repr__(self):
         return "---\n[" + repr(self[0]) + ", " + repr(self[1]) + "]\n[" + repr(self[2]) + ", " + repr(self[3]) + "]"
 
@@ -57,6 +72,7 @@ class Booklet:
             raise StopIteration
         self.quadpage += 1
         return self.quadpages[self.quadpage - 1]
+
     def __repr__(self):
         return """---
 Book:
@@ -64,9 +80,56 @@ Book:
     Quad pages: (%d /) %d
 """ % (self.realcount, self.count, self.quadpage + 1, len(self.quadpages))
 
-book = Booklet(17)
+def genPage(inpages, bookpage):
+    scale = 0.5
+    pages = PageMerge() + ( inpages[i] for i in bookpage if i is not None and inpages[i] is not None)
+    nonepages = list( int(i) for i, p in enumerate(bookpage) if p is None or inpages[p] is None)
 
-print(repr(book))
+    Xoff, Yoff = (scale * i for i in pages.xobj_box[2:])
+    # move = [ [0, 0], [Xoff, 0], [0, Yoff], [Xoff, Yoff] ]
+    move = [ [0, Yoff], [Xoff, Yoff], [0, 0], [Xoff, 0] ]
+    
+    print("Xoff: {} / Yoff: {}".format(Xoff, Yoff))
 
-for x in book:
-    print(repr(x))
+    fixoff = 0
+    for xi, p in enumerate(pages):
+        # Fix offset if current index is in none list
+        try:
+            # print("Test if {} in {}".format(xi + fixoff, nonepages))
+            nonepages.index( (xi + fixoff) )
+            print("Added index fix for page {} (in none pages: {})".format(xi + fixoff, nonepages))
+            fixoff += 1
+        except ValueError:
+            pass
+        i = xi + fixoff
+        p.scale(scale)
+        print("[page {} index {} fix {}]: x: {} / y: {}".format(bookpage[i], i, fixoff, move[i][0], move[i][1]))
+        p.x = move[i][0]
+        p.y = move[i][1]
+
+    return pages.render()
+    
+    
+
+def genBooklet(infile: str, outfile: str):
+    o_inpages = PdfReader(infile).pages
+    writer = PdfWriter(outfile)
+    
+    book = Booklet(len(o_inpages))
+    
+
+    while len(o_inpages) < book.count:
+        print("Adding blank page")
+        o_inpages.append(None)
+    
+    inpages = o_inpages
+    opages = []
+
+    for page in book:
+        # writer.addpages(genPage(inpages, page))
+        opages.append(genPage(inpages, page))
+
+    writer.addpages(opages)
+    writer.write()
+
+genBooklet(sys.argv[1], 'booklet.' + os.path.basename(sys.argv[1]))
