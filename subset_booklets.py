@@ -43,6 +43,8 @@ OUTFN = 'booklet.' + os.path.basename(INPFN)
 ALL_IPAGES = PdfReader(INPFN).pages
 print('The pdf file '+str(INPFN)+' has '+str(len(ALL_IPAGES))+' pages.')
 
+print("Pages to generate: %d\n" %(len(ALL_IPAGES) / 4 ))
+
 #Make sure we have an even number
 if len(ALL_IPAGES) & 1:
     ALL_IPAGES.append(None)
@@ -66,7 +68,8 @@ if (len(opages) % 2) != 0:
 
 offset = int(len(opages) / 2)
 
-for i in range(0, (offset - 1)):
+for i in range(0, offset):
+    print("Generating page %d (+ %d)" % (i, offset + i) )
     npages.append(fixvpage(opages[offset + i], opages[i]))
 
 
