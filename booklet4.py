@@ -139,11 +139,12 @@ def genBooklet(infile: str, outfile: str):
 infile = easygui.fileopenbox(msg="Open PDF document to generate booklet for", default="*.pdf", filetypes=["*.pdf"] )
 if infile is None:
     print("No document selected, exiting")
-    exit()
+    sys.exit()
 outfile = 'booklet.' + os.path.basename(infile)
 outfile = easygui.filesavebox(msg="Save booklet file", default=outfile, filetypes=["*.pdf"]  )
 if outfile is None:
     print("No output document selected, exiting")
+    sys.exit()
 
 genBooklet(infile, outfile)
 easygui.msgbox("Booklet generated, saved to {}".format(outfile))
