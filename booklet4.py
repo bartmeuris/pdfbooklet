@@ -4,6 +4,7 @@ import sys
 import os
 import time
 import easygui
+import getopt
 from pdfrw import PdfReader, PdfWriter, PageMerge
 
 
@@ -89,7 +90,7 @@ def genPage(inpages, bookpage):
     scale = 0.5
     pages = PageMerge() + ( inpages[i] for i in bookpage if i is not None and inpages[i] is not None)
     nonepages = list( int(i) for i, p in enumerate(bookpage) if p is None or inpages[p] is None)
-
+    
     Xoff, Yoff = (scale * i for i in pages.xobj_box[2:])
     # move = [ [0, 0], [Xoff, 0], [0, Yoff], [Xoff, Yoff] ]
     move = [ [0, Yoff], [Xoff, Yoff], [0, 0], [Xoff, 0] ]
@@ -136,15 +137,45 @@ def genBooklet(infile: str, outfile: str):
     writer.addpages(opages)
     writer.write()
 
-infile = easygui.fileopenbox(msg="Open PDF document to generate booklet for", default="*.pdf", filetypes=["*.pdf"] )
-if infile is None:
-    print("No document selected, exiting")
-    sys.exit()
-outfile = 'booklet.' + os.path.basename(infile)
-outfile = easygui.filesavebox(msg="Save booklet file", default=outfile, filetypes=["*.pdf"]  )
-if outfile is None:
-    print("No output document selected, exiting")
-    sys.exit()
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "an", ["autofilename", "noninteractive"])
+    except Exception as e:
+        print(e)
+        sys.exit(2)
 
-genBooklet(infile, outfile)
-easygui.msgbox("Booklet generated, saved to {}".format(outfile))
+    autofilename = False
+    noninteractive = False
+    for o, a in opts:
+        if o == "-a":
+            autofilename = True
+
+    if len(args) > 0:
+        infile = args[0]
+    else:
+        infile = easygui.fileopenbox(msg="Open PDF document to generate booklet for", default="*.pdf", filetypes=["*.pdf"] )
+
+    if infile is None:
+        print("No document selected, exiting")
+        sys.exit(1)
+
+    outfile = os.path.dirname(infile) + os.path.sep + 'booklet.' + os.path.basename(infile)
+
+    if len(args) > 1:
+        outfile = args[1]
+
+    if not autofilename:
+        outfile = easygui.filesavebox(msg="Save booklet file", default=outfile, filetypes=["*.pdf"]  )
+
+    if outfile is None:
+        print("No output document selected, exiting")
+        sys.exit(1)
+
+    genBooklet(infile, outfile)
+    if not noninteractive:
+        easygui.msgbox("Booklet generated, saved to {}".format(outfile))
+    else:
+        print("Booklet generated, saved to {}".format(outfile))
+
+if __name__ == "__main__":
+    main()
