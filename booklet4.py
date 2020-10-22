@@ -36,12 +36,14 @@ class Booklet:
     def __init__(self, pagecount: int):
         
         self.realcount = pagecount
-        self.count = pagecount + (4 - (pagecount % 4))
+        self.count = (pagecount + (4 - (pagecount % 4))) if (pagecount % 4) != 0 else pagecount
         
         self.quadpage = 0
         self.quadpages = []
         for pn in range(int(self.count / 4)):
             self.quadpages.append(BookletPage(self, pn))
+
+        # print("Creating booklet with {} ({}) pages -> {}x4 pages".format(self.realcount, self.count, len(self.quadpages)))
         
         pnr = 0
 
@@ -89,7 +91,7 @@ def genPage(inpages, bookpage):
     # move = [ [0, 0], [Xoff, 0], [0, Yoff], [Xoff, Yoff] ]
     move = [ [0, Yoff], [Xoff, Yoff], [0, 0], [Xoff, 0] ]
     
-    print("Xoff: {} / Yoff: {}".format(Xoff, Yoff))
+    # print("Xoff: {} / Yoff: {}".format(Xoff, Yoff))
 
     fixoff = 0
     for xi, p in enumerate(pages):
@@ -97,13 +99,13 @@ def genPage(inpages, bookpage):
         try:
             # print("Test if {} in {}".format(xi + fixoff, nonepages))
             nonepages.index( (xi + fixoff) )
-            print("Added index fix for page {} (in none pages: {})".format(xi + fixoff, nonepages))
+            # print("Added index fix for page {} (in none pages: {})".format(xi + fixoff, nonepages))
             fixoff += 1
         except ValueError:
             pass
         i = xi + fixoff
         p.scale(scale)
-        print("[page {} index {} fix {}]: x: {} / y: {}".format(bookpage[i], i, fixoff, move[i][0], move[i][1]))
+        # print("[page {} index {} fix {}]: x: {} / y: {}".format(bookpage[i], i, fixoff, move[i][0], move[i][1]))
         p.x = move[i][0]
         p.y = move[i][1]
 
