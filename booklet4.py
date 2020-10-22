@@ -44,13 +44,18 @@ class Booklet:
         
         self.quadpage = 0
         self.quadpages = []
+        pn = 0
         for pn in range(int(self.count / 4)):
-            self.quadpages.append(BookletPage(self, pn))
+            # print("Adding quad page: {}".format(pn+1))
+            self.quadpages.append(BookletPage(self, pn + 1))
+
+        if len(self.quadpages) % 2 != 0:
+            # print("Adding extra quad page: {}".format(pn+2))
+            self.quadpages.append(BookletPage(self, pn + 2))
 
         # print("Creating booklet with {} ({}) pages -> {}x4 pages".format(self.realcount, self.count, len(self.quadpages)))
         
         pnr = 0
-
         # Add first set of pages
         for x in range(len(self.quadpages)):
             self.quadpages[x][1 if (pnr % 2) == 0 else 0] = pnr
@@ -149,6 +154,8 @@ def main():
     for o, a in opts:
         if o == "-a":
             autofilename = True
+        if o == "-n":
+            noninteractive = True
 
     if len(args) > 0:
         infile = args[0]
