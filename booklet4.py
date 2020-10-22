@@ -7,9 +7,15 @@ import easygui
 import getopt
 from pdfrw import PdfReader, PdfWriter, PageMerge
 
-
-
 class BookletPage:
+    """
+    Represents a single page in the booklet.
+    Acts as an iterator and an array:
+    0 = top left
+    1 = top right
+    2 = bottom left
+    3 = bottom right
+    """
     def __init__(self, booklet, pagenr: int):
         self.booklet = booklet
         self.nr = pagenr
@@ -34,45 +40,53 @@ class BookletPage:
         return self[ self.index - 1 ]
 
     def __repr__(self):
-        return "---\n[" + repr(self[0]) + ", " + repr(self[1]) + "]\n[" + repr(self[2]) + ", " + repr(self[3]) + "]"
+        return "---\n[{}, {}]\n[{}, {}]".format(self[0], self[1], self[2], self[3])
 
 class Booklet:
+    """
+    Represents booklet. Calcultates the page positions based on a page count.
+    Acts as an iterator returning BookletPage instances in the right order.
+    """
     def __init__(self, pagecount: int):
         
         self.realcount = pagecount
-        self.count = (pagecount + (4 - (pagecount % 4))) if (pagecount % 4) != 0 else pagecount
+        # Count must be a multiple of 8: 4 per side
+        self.count = (pagecount + (8 - (pagecount % 8))) if (pagecount % 8) != 0 else pagecount
         
         self.quadpage = 0
         self.quadpages = []
         pn = 0
+        # Add a 'quad' page per 4 pages
         for pn in range(int(self.count / 4)):
             # print("Adding quad page: {}".format(pn+1))
             self.quadpages.append(BookletPage(self, pn + 1))
-
-        if len(self.quadpages) % 2 != 0:
-            # print("Adding extra quad page: {}".format(pn+2))
-            self.quadpages.append(BookletPage(self, pn + 2))
-
         # print("Creating booklet with {} ({}) pages -> {}x4 pages".format(self.realcount, self.count, len(self.quadpages)))
-        
+
+        # Not nice, brute force through pages. Could probably be done with math magic, but logic for this is a bit more clear.
         pnr = 0
-        # Add first set of pages
+        # 1: 1st halve, 1st quarter of the pages: loop front to back
         for x in range(len(self.quadpages)):
+            # Alternate front & back: Even pages on the top right, odd on the top left
             self.quadpages[x][1 if (pnr % 2) == 0 else 0] = pnr
             pnr += 1
-
+        
+        # 2: 1st halve, 2nd quarter of the pages: loop front to back
         for x in range(len(self.quadpages)):
+            # Alternate front & back: Even pages on the top left, odd on the top right
             self.quadpages[x][3 if (pnr % 2) == 0 else 2] = pnr
             pnr += 1
 
+        # 3: 2nd halve, 3rd quarter of the pages: loop back to front
         for x in range(len(self.quadpages) - 1, -1, -1):
+            # Alternate front & back: Even pages on the bottom right, odd on the bottom left
             self.quadpages[x][3 if (pnr % 2) == 0 else 2] = pnr
             pnr += 1
 
+        # 4: 2nd halve, 4th quarter of the pages: loop back to front
         for x in range(len(self.quadpages) - 1, -1, -1):
+            # Alternate front & back: Even pages on the bottom left, odd on the bottom right
             self.quadpages[x][1 if (pnr % 2) == 0 else 0] = pnr
             pnr += 1
-
 
     def __iter__(self):
         self.quadpage = 0
@@ -84,59 +98,57 @@ class Booklet:
         self.quadpage += 1
         return self.quadpages[self.quadpage - 1]
 
-    def __repr__(self):
-        return """---
-Book:
-    Pages: %d (fixed: %d)
-    Quad pages: (%d /) %d
-""" % (self.realcount, self.count, self.quadpage + 1, len(self.quadpages))
-
 def genPage(inpages, bookpage):
     scale = 0.5
+    # Get the list of the pages, skip empty-ones
     pages = PageMerge() + ( inpages[i] for i in bookpage if i is not None and inpages[i] is not None)
+    # Create a list with the positions of the pages that were empty, so we can correct the offset
+    # when enumerating the pages in the pages list.
     nonepages = list( int(i) for i, p in enumerate(bookpage) if p is None or inpages[p] is None)
     
+    # Figure out the size of the sub-pages, taking into account the scaling
     Xoff, Yoff = (scale * i for i in pages.xobj_box[2:])
-    # move = [ [0, 0], [Xoff, 0], [0, Yoff], [Xoff, Yoff] ]
+    # Determine the offset corrections for each page position
     move = [ [0, Yoff], [Xoff, Yoff], [0, 0], [Xoff, 0] ]
-    
-    # print("Xoff: {} / Yoff: {}".format(Xoff, Yoff))
 
     fixoff = 0
     for xi, p in enumerate(pages):
-        # Fix offset if current index is in none list
         try:
-            # print("Test if {} in {}".format(xi + fixoff, nonepages))
+            # Fix offset if current index is in none list
             nonepages.index( (xi + fixoff) )
             # print("Added index fix for page {} (in none pages: {})".format(xi + fixoff, nonepages))
             fixoff += 1
         except ValueError:
             pass
         i = xi + fixoff
+
+        # Scale the sub-page and correct the position on the current merged page
         p.scale(scale)
-        # print("[page {} index {} fix {}]: x: {} / y: {}".format(bookpage[i], i, fixoff, move[i][0], move[i][1]))
         p.x = move[i][0]
         p.y = move[i][1]
 
+    # Render the merged pages and return the output
     return pages.render()
     
     
 
 def genBooklet(infile: str, outfile: str):
-    o_inpages = PdfReader(infile).pages
+    """
+    Loads a PDF from infile, and generates a booklet from it, writing it to the outfile.
+    """
+    inpages = PdfReader(infile).pages
     writer = PdfWriter(outfile)
     
-    book = Booklet(len(o_inpages))
+    book = Booklet(len(inpages))
+    # Make sure the input page count matches the calculated pages count from the booklet
+    while len(inpages) < book.count:
+        inpages.append(None)
 
-    while len(o_inpages) < book.count:
-        print("Adding blank page")
-        o_inpages.append(None)
-    
-    inpages = o_inpages
+    # inpages = o_inpages
     opages = []
 
+    # Generate all pages and append them to the output file
     for page in book:
-        # writer.addpages(genPage(inpages, page))
         opages.append(genPage(inpages, page))
 
     writer.addpages(opages)
@@ -156,6 +168,7 @@ def main():
             autofilename = True
         if o == "-n":
             noninteractive = True
+            autofilename = True
 
     if len(args) > 0:
         infile = args[0]
@@ -166,19 +179,24 @@ def main():
         print("No document selected, exiting")
         sys.exit(1)
 
-    outfile = os.path.dirname(infile) + os.path.sep + 'booklet.' + os.path.basename(infile)
-
+    # Autogenerate filename
+    outfile = os.path.dirname(infile) + os.path.sep + 'booklet-' + os.path.basename(infile)
     if len(args) > 1:
+        # Override output filename from cli args
         outfile = args[1]
+        autofilename = True
 
     if not autofilename:
+        # Ask for a file if we didn't request automatic filename generation, or wanted non-interactive mode.
         outfile = easygui.filesavebox(msg="Save booklet file", default=outfile, filetypes=["*.pdf"]  )
 
     if outfile is None:
         print("No output document selected, exiting")
         sys.exit(1)
 
+    # Generate the booklet
     genBooklet(infile, outfile)
+
     if not noninteractive:
         easygui.msgbox("Booklet generated, saved to {}".format(outfile))
     else:
