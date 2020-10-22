@@ -4,9 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+easygui = "*"
+pdfrw = "*"
 
 [dev-packages]
 pylint = "*"
+pyinstaller = "*"
 
 [requires]
 python_version = "3.8"

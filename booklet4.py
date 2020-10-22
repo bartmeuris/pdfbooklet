@@ -3,7 +3,10 @@
 import sys
 import os
 import time
+import easygui
 from pdfrw import PdfReader, PdfWriter, PageMerge
+
+
 
 class BookletPage:
     def __init__(self, booklet, pagenr: int):
@@ -118,7 +121,6 @@ def genBooklet(infile: str, outfile: str):
     writer = PdfWriter(outfile)
     
     book = Booklet(len(o_inpages))
-    
 
     while len(o_inpages) < book.count:
         print("Adding blank page")
@@ -134,4 +136,14 @@ def genBooklet(infile: str, outfile: str):
     writer.addpages(opages)
     writer.write()
 
-genBooklet(sys.argv[1], 'booklet.' + os.path.basename(sys.argv[1]))
+infile = easygui.fileopenbox(msg="Open PDF document to generate booklet for", default="*.pdf", filetypes=["*.pdf"] )
+if infile is None:
+    print("No document selected, exiting")
+    exit()
+outfile = 'booklet.' + os.path.basename(infile)
+outfile = easygui.filesavebox(msg="Save booklet file", default=outfile, filetypes=["*.pdf"]  )
+if outfile is None:
+    print("No output document selected, exiting")
+
+genBooklet(infile, outfile)
+easygui.msgbox("Booklet generated, saved to {}".format(outfile))

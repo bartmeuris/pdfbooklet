@@ -1,2 +1,4 @@
 *.pdf
 .vscode/settings.json
+build/
+dist/
